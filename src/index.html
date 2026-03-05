@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tetris (TDD demo)</title>
+  <style>
+    /* basic styling */
+    body { font-family: sans-serif; background: #fff; color: #000; display: flex; justify-content: center; }
+    #game { margin: 0; width: 320px; height: 640px; background: #eee; position: relative; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="layout" style="display:flex; align-items:flex-start;">
+    <div id="controls" style="margin-right:20px;">
+      <h1>Tetris</h1>
+      <div style="margin-bottom:10px;">
+        <label for="speedSelect">Speed:</label>
+        <select id="speedSelect">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+        </select>
+      </div>
+      <div style="margin-bottom:10px;">
+        <button id="startBtn">Start</button>
+        <button id="restartBtn" style="display:none;">Restart</button>
+      </div>
+      <div>
+        <span id="scoreDisplay">Score: 0</span>
+      </div>
+    </div>
+    <div id="game">
+      <canvas id="canvas" width="320" height="640"></canvas>
+    </div>
+  </div>
+  <script type="module">
+    console.log('index.html script running');
+    import { Tetris } from './tetris.js';
+    const game = new Tetris(10, 20);
+    let intervalId = null;
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const speedSelect = document.getElementById('speedSelect');
+
+    speedSelect.addEventListener('change', () => {
+      const val = parseFloat(speedSelect.value);
+      game.setSpeed(val);
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = setInterval(() => {
+          if (!game.gameOver) {
+            game.tick();
+            redraw();
+            updateScore();
+          } else {
+            clearInterval(intervalId);
+            intervalId = null;
+            startBtn.style.display = 'none';
+            restartBtn.style.display = 'inline';
+          }
+        }, game.getInterval());
+      }
+    });
+
+    function updateScore() {
+      scoreDisplay.textContent = `Score: ${game.score}`;
+    }
+
+    function startGame() {
+      game.reset();
+      game.spawnPiece();
+      updateScore();
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => {
+        if (!game.gameOver) {
+          game.tick();
+          redraw();
+          updateScore();
+        } else {
+          clearInterval(intervalId);
+          intervalId = null;
+          startBtn.style.display = 'none';
+          restartBtn.style.display = 'inline';
+        }
+      }, game.getInterval());
+      startBtn.style.display = 'none';
+      restartBtn.style.display = 'none';
+    }
+
+    restartBtn.addEventListener('click', startGame);
+    startBtn.addEventListener('click', startGame);
+
+    const canvas = document.getElementById('canvas');
+    if (!canvas) {
+      console.error('canvas element not found!');
+    } else {
+      const ctx = canvas.getContext('2d');
+
+      const cellWidth = canvas.width / game.width;
+      const cellHeight = canvas.height / game.height;
+
+      function drawGrid() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#333';
+        for (let y = 0; y < game.height; y++) {
+          for (let x = 0; x < game.width; x++) {
+            if (game.grid[y][x] !== 0) {
+              ctx.fillStyle = game.grid[y][x];
+              ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+            }
+            ctx.strokeRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+          }
+        }
+      }
+
+      function drawPiece() {
+        if (!game.currentPiece) return;
+        ctx.fillStyle = game.currentPiece.color;
+        for (const b of game.currentPiece.blocks) {
+          const px = game.currentPiece.x + b.x;
+          const py = game.currentPiece.y + b.y;
+          ctx.fillRect(
+            px * cellWidth,
+            py * cellHeight,
+            cellWidth,
+            cellHeight
+          );
+        }
+      }
+
+      function redraw() {
+        drawGrid();
+        drawPiece();
+        if (game.gameOver) {
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#000';
+          ctx.font = '20px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2);
+        }
+      }
+
+      window.addEventListener('keydown', (e) => {
+        if (game.gameOver) return;
+        switch (e.key) {
+          case 'ArrowLeft':
+            game.movePiece(-1);
+            redraw();
+            break;
+          case 'ArrowRight':
+            game.movePiece(1);
+            redraw();
+            break;
+          case 'ArrowDown':
+            game.tick();
+            redraw();
+            break;
+          case 'ArrowUp':
+            game.rotatePiece();
+            redraw();
+            break;
+        }
+      });
+
+      // initial draw (game not started yet)
+      redraw();
+    }
+  </script>
+</body>
+</html>
